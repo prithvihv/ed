@@ -64,7 +64,7 @@
    :total_amount (mf-txn "transaction_amount")
    :transaction_id (mf-txn "transaction_id")})
 
-(defn sql-upsert-asset-mf
+(defn sql-upsert-inv-mf
   ""
   [invs]
   (-> (sqlh/insert-into :investments)
@@ -80,7 +80,7 @@
 (defn sql-upsert-asset-mf
   "upsert assets"
   [schemas]
-  (-> (sqlh/insert-into :asset_holding_type_mapping [:schema_code :name :type])
+  (-> (sqlh/insert-into :asset_holding_type_mapping)
       (sqlh/values schemas)
       (sqlh/upsert (-> (sqlh/on-conflict :schema_code)
                        (sqlh/do-update-set :name :type)))
@@ -103,7 +103,7 @@
   (->> (-> (mock-get-txn-mf)
            (get-in ["data" "transaction_list"]))
        (map get-inv-for-txn-mf)
-       (sql-upsert-asset-mf)
+       (sql-upsert-inv-mf)
        (jdbc/execute-one! ds))
 
   (->> (-> (mock-get-dashboard-mf)
