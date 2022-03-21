@@ -6,6 +6,7 @@
            '[clj-time.coerce :as tc]
            '[next.jdbc :as jdbc]
            '[next.jdbc.types :as jdbc.types]
+           '[next.jdbc.date-time :as jdbc.date]
            '[honey.sql :as sql]
            '[honey.sql.helpers :as sqlh])
   (:gen-class))
@@ -53,12 +54,28 @@
 
 (defn get-inv-for-txn-mf
   "get inv obj from transaction for mf"
-  [dashboard-detials mf-txn]
+  [mf-txn]
   {:schema_code (mf-txn "scheme_code")
    :buy_price (mf-txn "transaction_price")
-   :buy_date (tc/from-string (mf-txn "transaction_time"))
+   :buy_date (-> (mf-txn "transaction_time")
+                 (tc/from-string)
+                 (tc/to-timestamp))
    :qty (mf-txn "units")
-   :total_amount (mf-txn "transaction_time")})
+   :total_amount (mf-txn "transaction_amount")
+   :transaction_id (mf-txn "transaction_id")})
+
+(defn sql-upsert-asset-mf
+  ""
+  [invs]
+  (-> (sqlh/insert-into :investments)
+      (sqlh/values invs)
+      (sqlh/upsert (-> (sqlh/on-conflict :transaction_id)
+                       (sqlh/do-update-set
+                        :buy_price
+                        :buy_date
+                        :qty
+                        :total_amount))) ;; FIXME
+      (sql/format {:pretty true})))
 
 (defn sql-upsert-asset-mf
   "upsert assets"
@@ -68,7 +85,6 @@
       (sqlh/upsert (-> (sqlh/on-conflict :schema_code)
                        (sqlh/do-update-set :name :type)))
       (sql/format {:pretty true})))
-
 
 (defn get-asset-details-mf-from-dashboard
   ""
@@ -84,6 +100,12 @@
 ;;
 (defn mf-main
   []
+  (->> (-> (mock-get-txn-mf)
+           (get-in ["data" "transaction_list"]))
+       (map get-inv-for-txn-mf)
+       (sql-upsert-asset-mf)
+       (jdbc/execute-one! ds))
+
   (->> (-> (mock-get-dashboard-mf)
            (get-in ["investments" "portfolio_schemes"]))
        (map get-asset-details-mf-from-dashboard)
@@ -91,6 +113,8 @@
        (sql-upsert-asset-mf)
        (jdbc/execute-one! ds)))
 
+
 (defn -main
   "I don't do a whole lot ... yet."
-  [& args])
+  [& args]
+  (println  "hello world"))

@@ -24,5 +24,6 @@ CREATE TABLE investments(
     qty numeric(10,3) not null,
     total_amount numeric(10,2) not null,
     created_at timestamp without time zone default now(),
+    transaction_id varchar(20) PRIMARY KEY,
     updated_at timestamp without time zone default now()
 );
