@@ -56,23 +56,25 @@
   "get inv obj from transaction for mf"
   [mf-txn]
   {:schema_code (mf-txn "scheme_code")
-   :buy_price (mf-txn "transaction_price")
-   :buy_date (-> (mf-txn "transaction_time")
+   :txn_price (mf-txn "transaction_price")
+   :txn_date (-> (mf-txn "transaction_time")
                  (tc/from-string)
                  (tc/to-timestamp))
    :qty (mf-txn "units")
    :total_amount (mf-txn "transaction_amount")
-   :transaction_id (mf-txn "transaction_id")})
+   :txn_id (mf-txn "transaction_id")
+   :txn_type (->  (mf-txn "transaction_type")
+                  (jdbc.types/as-other))})
 
 (defn sql-upsert-inv-mf
   ""
   [invs]
-  (-> (sqlh/insert-into :investments)
+  (-> (sqlh/insert-into :investments_log)
       (sqlh/values invs)
-      (sqlh/upsert (-> (sqlh/on-conflict :transaction_id)
+      (sqlh/upsert (-> (sqlh/on-conflict :txn_id)
                        (sqlh/do-update-set
-                        :buy_price
-                        :buy_date
+                        :txn_price
+                        :txn_date
                         :qty
                         :total_amount))) ;; FIXME
       (sql/format {:pretty true})))

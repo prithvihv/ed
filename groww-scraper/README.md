@@ -39,6 +39,10 @@ https://groww.in/v1/api/data/mf/web/v2/scheme/search/<search_id>
 3. for every dasboard object call:
 https://groww.in/v1/api/portfolio/v1/transaction/scheme/all?folio_number=<folio_number>&page=<pg-no>&scheme_code=<scheme_code>&size=50
 
+
+#### explore later
+https://netsage-project.github.io/gdg/docs/usage_guide/
+
 ## License
 
 Copyright © 2022 FIXME

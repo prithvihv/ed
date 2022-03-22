@@ -15,8 +15,8 @@ CREATE TABLE asset_holding_type_mapping(
 );
 select * from asset_holding_type_mapping;
 
-DROP TABLE investments;
-CREATE TABLE investments(
+DROP TABLE investments_log;
+CREATE TABLE investments_log(
     id SERIAL,
     schema_code varchar(20) references asset_holding_type_mapping(schema_code),
     buy_price numeric(10,4) not null,
