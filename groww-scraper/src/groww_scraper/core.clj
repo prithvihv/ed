@@ -97,24 +97,51 @@
                (name)
                (jdbc.types/as-other))}))
 
-;;
-(defn mf-main
-  []
-  (->> (-> (mock-get-txn-mf)
+
+(defn store-inv-from-mf
+  "load investmenst from mf details"
+  [folio-number scheme-code]
+  (->> (-> (get-txns-for-mf folio-number scheme-code)
            (get-in ["data" "transaction_list"]))
        (map get-inv-for-txn-mf)
        (sql-upsert-inv-mf)
-       (jdbc/execute-one! ds))
+       (jdbc/execute-one! ds)))
 
+
+(defn store-inv-mf
+  "everything mf"
+  []
+  (do
+    ;; load asset infomation
+    (->> (-> (get-dashboard-mf)
+             (get-in ["investments" "portfolio_schemes"]))
+         (map get-asset-details-mf-from-dashboard)
+         (map vals)
+         (sql-upsert-asset-mf)
+         (jdbc/execute-one! ds))
+   ;; load inv
+    (->> (-> (get-dashboard-mf)
+             (get-in ["investments" "portfolio_schemes"]))
+         (map (fn [mf] [(mf "folio_number") (mf "scheme_code")]))
+         (map (fn [mf-details] (apply store-inv-from-mf mf-details))))))
+
+(defn play-ground-threads
+  []
   (->> (-> (mock-get-dashboard-mf)
            (get-in ["investments" "portfolio_schemes"]))
        (map get-asset-details-mf-from-dashboard)
        (map vals)
        (sql-upsert-asset-mf)
-       (jdbc/execute-one! ds)))
+       (jdbc/execute-one! ds))
 
+  (->> (-> (mock-get-txn-mf)
+           (get-in ["data" "transaction_list"]))
+       (map get-inv-for-txn-mf)
+       (sql-upsert-inv-mf)
+       (jdbc/execute-one! ds)))
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (println  "hello world"))
+  (do
+    (store-inv-mf)))
