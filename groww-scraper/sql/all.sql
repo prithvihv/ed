@@ -64,4 +64,23 @@ WITH credit as (
     WHERE i_log.txn_type = 'REDEEM'
     GROUP BY schema_code
 )
-SELECT sum(c.credit - coalesce(d.debit, 0)) from credit c left join debit d on c.schema_code = d.schema_code;
+SELECT sum(c.credit - coalesce(d.debit, 0)) as "invested-value" from credit c left join debit d on c.schema_code = d.schema_code;
+
+-- current value
+WITH credit as (
+    select schema_code, sum(qty) as credit
+    from investments_log i_log
+    WHERE i_log.txn_type = 'PURCHASE'
+    group by schema_code
+), debit as (
+    SELECT schema_code, sum(qty) as debit
+    FROM investments_log i_log
+    WHERE i_log.txn_type = 'REDEEM'
+    GROUP BY schema_code
+), qty_value as (
+    SELECT c.schema_code, c.credit - coalesce(d.debit, 0) as qty_owned, ass.nav, ass.nav * (c.credit - coalesce(d.debit, 0)) as current_value  from credit c
+    left join debit d on c.schema_code = d.schema_code
+    left join asset_holding_type_mapping ass on c.schema_code = ass.schema_code
+)
+SELECT sum(current_value) as "current-value"
+FROM qty_value;
