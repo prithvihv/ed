@@ -60,13 +60,30 @@
 (defn get-mf-details
   "get mf details"
   [search-id]
-  (let [auth-token (env :groww-auth-token)
-        capaign-token (env :groww-campaign-token)]
-    (json/decode
-     ((client/get (str "https://groww.in/v1/api/data/mf/web/v2/scheme/search/" search-id)
-                  {:headers {"Authorization" (str "Bearer " auth-token)
-                             "X-USER-CAMPAIGN" (str "Bearer " capaign-token)}})
-      :body))))
+  (-> (client/get (str "https://groww.in/v1/api/data/mf/web/v2/scheme/search/" search-id))
+      (:body)
+      (json/decode)))
+
+(defn http-get-mf-tick-data
+  "get mf details"
+  ([scheme-code months]
+   (-> (str
+        "https://groww.in/v1/api/data/mf/web/v1/scheme/" scheme-code
+        "/graph?benchmark=false&months=" months)
+       (client/get)
+       (:body)
+       (json/decode))))
+
+(defn get-mf-tick-data
+  ([schema-code]
+   (get-mf-tick-data schema-code 60))
+  ([schema-code months]
+   (map (fn [n] (vector (-> (nth n 0)
+                            (tc/from-long)
+                            (tc/to-timestamp)) (nth n 1)))
+        (-> (http-get-mf-tick-data schema-code months)
+            (get-in ["folio" "data"])))))
+
 
 (defn new-inv-for-mf
   "get inv obj from transaction for mf"
@@ -92,8 +109,8 @@
      :type (-> (get type-mapping scheme-code "stocks-mf")
                (name)
                (jdbc.types/as-other))
-     :expense_ratio (-> (mf-info "expense_ratio") 
-                     (read-string))
+     :expense_ratio (-> (mf-info "expense_ratio")
+                        (read-string))
      :nav (mf-info "nav")}))
 
 
@@ -124,6 +141,20 @@
                        (sqlh/do-update-set :name :type :expense_ratio :nav)))
       (sql/format)))
 
+(defn sql-upsert-tick-mf
+  "upsert assets"
+  [values]
+  ;; FIXME: why do we need to manual add columns here
+  (-> (sqlh/insert-into :asset_tick_data  [:tick_date
+                                           :tick_value
+                                           :schema_code])
+      (sqlh/values values)
+      (sqlh/upsert (-> (sqlh/on-conflict :tick_date
+                                         :tick_value
+                                         :schema_code)
+                       (sqlh/do-nothing)))
+      (sql/format)))
+
 
 (defn store-inv-from-mf
   "load investmenst from mf details"
@@ -137,21 +168,31 @@
 (defn store-inv-mf
   "everything mf"
   []
-  (let [dashboard-mf (get-dashboard-mf)]
-    (do
+  (do
+    ;; FIXME: can consider making 1 get-dashboard-mf call
     ;; load asset infomation
-      (->> (get-in dashboard-mf ["investments" "portfolio_schemes"])
-           (map (fn [n] (n "search_id")))
-           (distinct)
-           (map get-mf-details)
-           (map new-asset-details-for-mf)
-           (map vals)
-           (sql-upsert-asset-mf)
-           (jdbc/execute-one! ds))
+    (->> (get-in (get-dashboard-mf) ["investments" "portfolio_schemes"])
+         (map (fn [n] (n "search_id")))
+         (distinct)
+         (map get-mf-details)
+         (map new-asset-details-for-mf)
+         (map vals)
+         (sql-upsert-asset-mf)
+         (jdbc/execute-one! ds))
    ;; load inv
-      (->> (get-in dashboard-mf ["investments" "portfolio_schemes"])
-           (map (fn [mf] [(mf "folio_number") (mf "scheme_code")]))
-           (map (fn [mf-details] (apply store-inv-from-mf mf-details)))))))
+    (->> (get-in (get-dashboard-mf) ["investments" "portfolio_schemes"])
+         (map (fn [mf] [(mf "folio_number") (mf "scheme_code")]))
+         (map (fn [mf-details] (apply store-inv-from-mf mf-details))))
+   ;; load tick data
+    (->> (get-in (get-dashboard-mf) ["investments" "portfolio_schemes"])
+         (map (fn [n] (n "scheme_code")))
+         (distinct)
+         (map (fn [scheme-name] (for [tick (get-mf-tick-data scheme-name)]
+                                  (conj tick scheme-name))))
+         (flatten)
+         (partition 3)
+         (sql-upsert-tick-mf)
+         (jdbc/execute-one! ds))))
 
 (defn play-ground-threads
   []
@@ -159,9 +200,9 @@
                             (get-in ["investments" "portfolio_schemes"]))
              scheme-infos (->> (map (fn [n] (n "search_id")) mf-details)
                                (distinct)
-                               (map (fn [_] (mock-get-mf-info)))
+                               (map (fn [_] (mock-get-mf-info))))]
                               ;;  (map (fn [n] {n (mock-get-mf-info)}))
-                               )]
+
          scheme-infos)
        (map new-asset-details-for-mf)
        (map vals)
@@ -178,7 +219,7 @@
   (-> (mock-get-mf-info)
       (get-in ["nav"]))
 
-  ;; new mf thread
+  ;; new mf asset thread
   (->> (get-in (mock-get-dashboard-mf) ["investments" "portfolio_schemes"])
        (map (fn [n] (n "search_id")))
        (distinct)
@@ -186,9 +227,21 @@
        (map new-asset-details-for-mf)
        (map vals)
        (sql-upsert-asset-mf))
-  
+
   ;; store mf
-  (store-inv-from-mf "910111080781" "120503"))
+  (store-inv-from-mf "910111080781" "120503")
+
+  ;; load tick data
+  (->> (get-in (mock-get-dashboard-mf) ["investments" "portfolio_schemes"])
+       (map (fn [n] (n "scheme_code")))
+       (distinct)
+       (map (fn [scheme-name] (for [tick (get-mf-tick-data scheme-name)]
+                                (conj tick scheme-name))))
+       (flatten)
+       (partition 3)
+       (sql-upsert-tick-mf)
+       (jdbc/execute-one! ds))
+  ())
 
 (defn -main
   "I dont do a whole lot ... yet."

@@ -8,8 +8,12 @@ create type investment_log_txn_type as enum ('REDEEM', 'PURCHASE');
 
 -- manual entry table
 drop table asset_holding_type_mapping;
+drop table asset_tick_data;
+DROP TABLE investments_log;
+
 CREATE TABLE asset_holding_type_mapping(
-    schema_code varchar(20) PRIMARY KEY ,
+    id SERIAL,
+    schema_code varchar(20) PRIMARY KEY,
     name varchar(50) not null,
     type asset_holding_type not null,
     expense_ratio numeric(10,4) not null,
@@ -18,7 +22,17 @@ CREATE TABLE asset_holding_type_mapping(
     updated_at timestamp without time zone default now()
 );
 
-DROP TABLE investments_log;
+CREATE TABLE asset_tick_data(
+    id SERIAL,
+    schema_code varchar(20) references asset_holding_type_mapping(schema_code),
+    tick_value numeric(10,4) not null,
+    tick_date timestamp without time zone not null,
+    created_at timestamp without time zone default now(),
+    updated_at timestamp without time zone default now(),
+
+    UNIQUE (tick_date, tick_value, schema_code)
+);
+
 CREATE TABLE investments_log(
     id SERIAL,
     schema_code varchar(20) references asset_holding_type_mapping(schema_code),
@@ -84,3 +98,4 @@ WITH credit as (
 )
 SELECT sum(current_value) as "current-value"
 FROM qty_value;
+
