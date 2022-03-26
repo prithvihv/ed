@@ -99,3 +99,49 @@ WITH credit as (
 SELECT sum(current_value) as "current-value"
 FROM qty_value;
 
+-- asset performance
+SELECT
+  tick_date AS "time",
+  name AS metric,
+  tick_value
+FROM asset_tick_data
+LEFT JOIN asset_holding_type_mapping ahtm on asset_tick_data.schema_code = ahtm.schema_code
+WHERE
+  asset_tick_data.schema_code = $asset_schema_name
+ORDER BY 1,2
+
+
+-- asset info
+SELECT
+  schema_code,
+  name,
+  type,
+  nav,
+  expense_ratio
+FROM asset_holding_type_mapping
+left join ;
+WHERE
+  $__timeFilter(updated_at) AND
+  schema_code = $asset_schema_name
+ORDER BY 1,2
+
+-- TODO: derive asset_current value, asset_invested, asset growth, asset_cagr
+WITH credit as (
+    select schema_code, sum(qty) as credit
+    from investments_log i_log
+    WHERE i_log.txn_type = 'PURCHASE'
+    group by schema_code
+), debit as (
+    SELECT schema_code, sum(qty) as debit
+    FROM investments_log i_log
+    WHERE i_log.txn_type = 'REDEEM'
+    GROUP BY schema_code
+), qty_value as (
+    SELECT c.schema_code, c.credit - coalesce(d.debit, 0) as qty_owned, ass.nav, ass.nav * (c.credit - coalesce(d.debit, 0)) as current_value  from credit c
+    left join debit d on c.schema_code = d.schema_code
+    left join asset_holding_type_mapping ass on c.schema_code = ass.schema_code
+)
+SELECT sum(current_value) as "current-value"
+FROM qty_value;
+
+SELECT * from asset_holding_type_mapping
