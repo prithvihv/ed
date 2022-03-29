@@ -8,7 +8,9 @@
             [next.jdbc.types :as jdbc.types]
             [next.jdbc.date-time :as jdbc.date]
             [honey.sql :as sql]
-            [honey.sql.helpers :as sqlh])
+            [honey.sql.helpers :as sqlh]
+            [groww-scraper.fin :as fin]
+            [next.jdbc.result-set :as rs])
   (:gen-class))
 
 (def db {:dbtype "postgres" :dbname "ed" :user "postgres" :pass "postgres"})
@@ -76,7 +78,7 @@
 
 (defn get-mf-tick-data
   ([schema-code]
-   (get-mf-tick-data schema-code 60))
+   (get-mf-tick-data schema-code 600))
   ([schema-code months]
    (map (fn [n] (vector (-> (nth n 0)
                             (tc/from-long)
@@ -155,6 +157,20 @@
                        (sqlh/do-nothing)))
       (sql/format)))
 
+(defn sql-select-cagr-data
+  [schema-code st-date years-forward]
+  [(str "SELECT tick_value from asset_tick_data
+WHERE schema_code = ?
+    and (tick_date = ?::timestamp
+             OR tick_date = ?::timestamp + interval '" years-forward "years')
+ORDER BY tick_date asc") schema-code st-date st-date])
+
+(defn sql-select-first-tick-date
+  [schema-code]
+  (-> (sqlh/select [[:min, :tick_date]])
+      (sqlh/from :asset_tick_data)
+      (sqlh/where [:= :schema_code schema-code])
+      (sql/format)))
 
 (defn store-inv-from-mf
   "load investmenst from mf details"
@@ -164,6 +180,11 @@
        (map new-inv-for-mf)
        (sql-upsert-inv-mf)
        (jdbc/execute-one! ds)))
+
+(defn get-min-tick-date-for-scheme
+  [scheme-code]
+  (->>  (jdbc/execute! ds (sql-select-first-tick-date scheme-code))
+        (map (fn [n] (n :min)))))
 
 (defn store-inv-mf
   "everything mf"
@@ -191,8 +212,13 @@
                                   (conj tick scheme-name))))
          (flatten)
          (partition 3)
-         (sql-upsert-tick-mf)
-         (jdbc/execute-one! ds))))
+         (partition 1000)
+         (map (fn [to-insert] (->> (sql-upsert-tick-mf to-insert)
+                                   (jdbc/execute-one! ds)))))))
+
+(defn api
+  []
+  ())
 
 (defn play-ground-threads
   []
@@ -241,7 +267,27 @@
        (partition 3)
        (sql-upsert-tick-mf)
        (jdbc/execute-one! ds))
-  ())
+
+  ;; FIXME this doesnt work with execte-one
+  ;; get-min-tick-date-for-scheme
+  (->>  (jdbc/execute! ds (sql-select-first-tick-date "120503") {:builder-fn rs/as-unqualified-lower-maps})
+        (map (fn [n] (n :min))))
+
+  ;; cagr-data
+  ;; https://cljdoc.org/d/com.github.seancorfield/next.jdbc/1.2.772/doc/getting-started#options--result-set-builders
+  (let [min-date (get-min-tick-date-for-scheme "120503")
+        a (sql-select-cagr-data "120503" "2019-03-27" 1)
+        min-max (->> (jdbc/execute! ds a {:builder-fn rs/as-unqualified-lower-maps})
+                     (map (fn [n] (bigdec (n :tick_value)))))]
+    ;; (type (nth min-max 0)))
+    (if (< (count min-max) 2)
+      (println "didnt find min-max for this date")
+      (apply fin/cagr (-> (conj min-max 1)
+                          (reverse)))))
+
+
+
+  (apply str (take 10 (tc/to-string (t/now)))))
 
 (defn -main
   "I dont do a whole lot ... yet."

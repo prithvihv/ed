@@ -144,4 +144,12 @@ WITH credit as (
 SELECT sum(current_value) as "current-value"
 FROM qty_value;
 
-SELECT * from asset_holding_type_mapping
+SELECT * from asset_holding_type_mapping;
+SELECT * from asset_tick_data where tick_date = '2017-03-27'::timestamp + interval '6 days';
+
+-- CAGR PRICES
+SELECT tick_value from asset_tick_data
+WHERE schema_code = '120503'
+    and (tick_date = '2017-03-27'::timestamp
+             OR tick_date = '2017-03-27'::timestamp + interval '1 year')
+ORDER BY tick_date asc
