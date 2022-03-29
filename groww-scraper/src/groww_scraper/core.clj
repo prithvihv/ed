@@ -212,7 +212,7 @@ ORDER BY tick_date asc") schema-code st-date st-date])
                                   (conj tick scheme-name))))
          (flatten)
          (partition 3)
-         (partition 1000)
+         (partition-all 1000)
          (map (fn [to-insert] (->> (sql-upsert-tick-mf to-insert)
                                    (jdbc/execute-one! ds)))))))
 
