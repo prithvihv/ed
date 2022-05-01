@@ -1,6 +1,4 @@
-(ns groww-scraper.fin
-  (:require [clj-time.core :as t]
-            [clj-time.coerce :as tc]))
+(ns groww-scraper.fin)
 
 (defn cagr
   "cagr accepts st-price ed-price (decimal) and a time duration in years (int)"

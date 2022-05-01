@@ -27,6 +27,7 @@ FIXME: listing of options this app accepts.
 ### Any Other Sections
 ### That You Think
 ### Might be Useful
+- if you can't drop database `ed` it's probably because Grafana is still connected to it.
 
 #### MF transactions
 
