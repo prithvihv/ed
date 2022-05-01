@@ -121,7 +121,6 @@ SELECT
 FROM asset_holding_type_mapping
 left join ;
 WHERE
-  $__timeFilter(updated_at) AND
   schema_code = $asset_schema_name
 ORDER BY 1,2
 
@@ -153,3 +152,7 @@ WHERE schema_code = '120503'
     and (tick_date = '2017-03-27'::timestamp
              OR tick_date = '2017-03-27'::timestamp + interval '1 year')
 ORDER BY tick_date asc
+
+-- unique mf names
+SELECT distinct ahtm.name from investments_log
+left join asset_holding_type_mapping ahtm on ahtm.schema_code = investments_log.schema_code
