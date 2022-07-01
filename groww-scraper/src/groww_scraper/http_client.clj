@@ -5,11 +5,19 @@
             [clj-time.core :as t]
             [environ.core :refer [env]]))
 
+(def groww-auth-envs (atom {:auth-token (env :groww-auth-token),
+                            :campaign-token (env :groww-campaign-token)}))
+
+(defn set-groww-auth-envs
+  "helper to set groww auth envs"
+  [new-env]
+  (swap! groww-auth-envs (fn [old] (merge old new-env))))
+
 ;; http sdk?
 (defn get-dashboard-mf
   "get dashboard related data for mutaul funds"
   []
-  (let [auth-token (env :groww-auth-token)
+  (let [auth-token (:auth-token @groww-auth-envs)
         act-time (tc/to-long (t/now))]
     (json/decode
      ((client/get "https://groww.in/v1/api/portfolio/v2/dashboard"
@@ -22,8 +30,8 @@
   "assumes that only 1 page of size is present
    FIXME: add pagination"
   [folio-number scheme-code]
-  (let [auth-token (env :groww-auth-token)
-        capaign-token (env :groww-campaign-token)]
+  (let [auth-token (:auth-token @groww-auth-envs)
+        capaign-token (:campaign-token @groww-auth-envs)]
     (json/decode
      ((client/get "https://groww.in/v1/api/portfolio/v1/transaction/scheme/all"
                   {:headers {"Authorization" (str "Bearer " auth-token)

@@ -58,3 +58,14 @@ Public License, v. 2.0 are satisfied: GNU General Public License as published by
 the Free Software Foundation, either version 2 of the License, or (at your
 option) any later version, with the GNU Classpath Exception which is available
 at https://www.gnu.org/software/classpath/license.html.
+
+
+# TODO: 
+
+- need to build clojurejs project / grafana to take input of ENV variables
+
+consider ending the project, with a limited scope and nixifying the set up.
+nixify setup
+- https://github.com/samrose/clj-dropbox
+- https://discourse.nixos.org/t/nix-and-clojure/7104/3
+- https://github.com/jlesquembre/clj-nix

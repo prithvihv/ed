@@ -10,8 +10,13 @@
                  [clj-time "0.15.2"]
                  [com.github.seancorfield/next.jdbc "1.2.772"]
                  [org.postgresql/postgresql "42.2.10"]
-                 [com.github.seancorfield/honeysql "2.2.868"]]
-  :main ^:skip-aot groww-scraper.core
+                 [com.github.seancorfield/honeysql "2.2.868"]
+                 [hiccup "1.0.5"]
+
+                 ;; http server set up
+                 [ring/ring-core "1.8.2"]
+                 [ring/ring-jetty-adapter "1.8.2"]]
+  :main ^:skip-aot groww-scraper.main
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}})

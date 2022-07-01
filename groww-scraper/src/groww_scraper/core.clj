@@ -5,8 +5,7 @@
             [groww-scraper.http-client :as http-client]
             [groww-scraper.repo :as repo]
             [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs])
-  (:gen-class))
+            [next.jdbc.result-set :as rs]))
 
 (defn to-date-map
   [date]
@@ -133,12 +132,6 @@
 
   (->> (repo/get-min-tick-date-for-scheme "120503")
        (map (fn [n] (t/plus n (-> 1 t/days)))))
-  (t/plus (repo/get-min-tick-date-for-scheme "120503") (-> 1 t/days)))
+  (t/plus (repo/get-min-tick-date-for-scheme "120503") (-> 1 t/days))
 
-
-
-(defn -main
-  "I dont do a whole lot ... yet."
-  [& args]
-  (do
-    (store-inv-mf)))
+  (store-inv-mf))
